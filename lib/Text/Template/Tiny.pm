@@ -9,13 +9,9 @@ use strict;
 
 Text::Template::Tiny - Variable substituting template processor
 
-=head1 VERSION
-
-Version 0.01
-
 =cut
 
-our $VERSION = '0.01';
+our $VERSION = '1.000';
 
 =head1 SYNOPSIS
 
@@ -31,7 +27,10 @@ Example:
     # Create a template processor, with preset subtitutions.
     my $xp = Text::Template::Tiny->new(
       home    => $ENV{HOME},
-      lib     => "/etc/mylib",
+      lib     => {
+	      dev => "/tmp/mylib",
+	      std => "/etc/mylib",
+	  },
       version => 1.02,
     );
 
@@ -41,7 +40,13 @@ Example:
     # Apply it.
     print $xp->expand(<<EOD);
     For [% app %] version [% version %], the home of all operations
-    will be [% home %],
+    will be [% home %], and the library is [% lib.std %].
+    EOD
+
+    # Same, with additional substitutions for this call only.
+    print $xp->expand( <<EOD, { app => "ThisApp" } );
+    For [% app %] version [% version %], the home of all operations
+    will be [% home %], and the library is [% lib.std %].
     EOD
 
 =cut
@@ -54,25 +59,52 @@ sub new {
 sub add {
     my ($self, %ctrl) = @_;
     @{$self->{_ctrl}}{keys %ctrl} = values %ctrl;
+    delete $self->{_pat};
+    delete $self->{_rep};
 }
 
 sub expand {
-    my ($self, $text) = @_;
+    my ($self, $text, %ctrl) = @_;
 
-    my $pat = $self->{_pat};
-    my $ctrl = $self->{_ctrl};
-
-    unless ( $pat ) {
-	$pat = "(";
-	foreach ( keys(%{$self->{_ctrl}}) ) {
-	    $pat .= quotemeta($_) . "|";
-	}
-	chop($pat);
-	$pat .= ")";
-	$self->{_pat} = $pat = qr/\[\%\s+$pat\s+\%\]/;
+    my $save_ctrl;
+    if ( %ctrl ) {
+	$save_ctrl = { %{$self->{_ctrl} } };
+	$self->add(%ctrl);
     }
 
-    $text =~ s/$pat/$self->{_ctrl}->{$1}/ge;
+    my $pat = $self->{_pat};
+    my $rep = $self->{_rep};
+    my $ctrl = $self->{_ctrl};
+
+    unless ( $pat && $rep ) {
+	my $addpat;
+	$addpat = sub {
+	    my ( $c, $pfx ) = @_;
+	    while ( my ($k,$v) = each %$c ) {
+		if ( UNIVERSAL::isa( $v, 'HASH' ) ) {
+		    $addpat->( $v, "$pfx$k." );
+		}
+		else {
+		    $pat .= quotemeta($pfx.$k) . "|";
+		    $rep->{$pfx.$k} = $v;
+		}
+	    }
+	};
+	$pat = "(";
+	$addpat->( $self->{_ctrl}, "" );
+	chop($pat);
+	$pat .= ")";
+	$pat = qr/\[\%\s+$pat\s+\%\]/;
+	unless ( %ctrl ) {
+	    $self->{_pat} = $pat;
+	    $self->{_rep} = $rep;
+	}
+    }
+
+    $text =~ s/$pat/$rep->{$1}/ge;
+
+    $self->{_ctrl} = $save_ctrl if $save_ctrl;
+
     return $text;
 }
 
@@ -80,49 +112,25 @@ sub expand {
 
 Johan Vromans, C<< <jv at cpan.org> >>
 
-=head1 BUGS
+=head1 SUPPORT AND DOCUMENTATION
 
-Please report any bugs or feature requests to C<bug-text-template-tiny at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Text-Template-Tiny>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-=head1 SUPPORT
+Development of this module takes place on GitHub:
+https://github.com/sciurius/perl-Text-Template-Tiny.
 
 You can find documentation for this module with the perldoc command.
 
     perldoc Text::Template::Tiny
 
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Text-Template-Tiny>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Text-Template-Tiny>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Text-Template-Tiny>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
+Please report any bugs or feature requests using the issue tracker on
+GitHub.
 
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2008 Johan Vromans, all rights reserved.
+Copyright 2008,2015,2024 Johan Vromans, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
-
 
 =cut
 
