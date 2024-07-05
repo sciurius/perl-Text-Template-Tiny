@@ -50,7 +50,6 @@ To install this module, run the following commands:
 
 # SUPPORT AND DOCUMENTATION
 
-
 Development of this module takes place on GitHub:
 https://github.com/sciurius/perl-Text-Template-Tiny.
 
@@ -65,7 +64,7 @@ GitHub.
         http://search.cpan.org/dist/Text-Template-Tiny
 
 
-COPYRIGHT AND LICENCE
+# COPYRIGHT AND LICENCE
 
 Copyright (C) 2008,2024 Johan Vromans
 
