@@ -4,4 +4,4 @@ Makefile.PL
 README.md
 lib/Text/Template/Tiny.pm
 t/00_load.t
-t/01-basic.t
+t/01_basic.t
